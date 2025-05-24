@@ -32,15 +32,18 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
+	"github.com/rstms/mailgun/api"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"os"
+	"path/filepath"
 )
 
 const Version = "0.0.2"
 
 var cfgFile string
+
+var API *api.Client
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -68,20 +71,23 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	GlobalSwitch("verbose", "v", "verbose output")
+}
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.mailgun.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	return !os.IsNotExist(err)
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+
+	configDir, err := os.UserConfigDir()
+	cobra.CheckErr(err)
+	configFile := filepath.Join(configDir, "mailgun", "config.yaml")
+	if fileExists(configFile) {
+		cfgFile = configFile
+	}
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -102,4 +108,7 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+
+	API, err = api.NewClient()
+	cobra.CheckErr(err)
 }
