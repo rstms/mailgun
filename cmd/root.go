@@ -32,32 +32,22 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/rstms/mailgun/api"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const Version = "0.0.2"
 
 var cfgFile string
 
-var API *api.Client
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "mailgun",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Short: "mailgun toolkit",
+	Long:  `Functions making use of the mailgun API`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -71,7 +61,13 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	GlobalSwitch("verbose", "v", "verbose output")
+	OptionSwitch("verbose", "v", "verbose output")
+	OptionSwitch("json", "j", "select JSON output")
+	hostname, err := os.Hostname()
+	cobra.CheckErr(err)
+	_, domain, _ := strings.Cut(hostname, ".")
+	OptionString("domain", "d", domain, "mailgun domain")
+	OptionString("data_dir", "", "", "database root directory")
 }
 
 func fileExists(filename string) bool {
@@ -82,33 +78,37 @@ func fileExists(filename string) bool {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 
+	// user config dir
 	configDir, err := os.UserConfigDir()
 	cobra.CheckErr(err)
-	configFile := filepath.Join(configDir, "mailgun", "config.yaml")
-	if fileExists(configFile) {
-		cfgFile = configFile
-	}
+
+	defaultConfigFile := filepath.Join(configDir, "mailgun", "config.yaml")
+
 	if cfgFile != "" {
-		// Use config file from the flag.
+		// config file from the command line option 
 		viper.SetConfigFile(cfgFile)
+	} else if fileExists(defaultConfigFile) {
+		// default config file: ~/.config/mailgun/config.yaml
+		viper.SetConfigFile(defaultConfigFile)
 	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
+		// user home dir
+		homeDir, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
 		// Search config in home directory with name ".mailgun" (without extension).
-		viper.AddConfigPath(home)
+		viper.AddConfigPath(homeDir)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".mailgun")
 	}
 
+	viper.SetEnvPrefix("mailgun")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		if viper.GetBool("verbose") {
+			fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		}
 	}
 
-	API, err = api.NewClient()
-	cobra.CheckErr(err)
 }

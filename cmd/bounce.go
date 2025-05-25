@@ -31,50 +31,60 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"time"
 
-	"github.com/mailgun/mailgun-go/v5"
-	"github.com/mailgun/mailgun-go/v5/mtypes"
+	"github.com/mailgun/mailgun-go/v5/events"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-const DOMAIN_LIST_TIMEOUT = 30
-const DOMAIN_LIMIT = 100
-
-// domainsCmd represents the domains command
-var domainsCmd = &cobra.Command{
-	Use:   "domains",
-	Short: "list mailgun domains",
-	Long:  `A list of the domain names configured in your mailgun account`,
+// bounceCmd represents the bounce command
+var bounceCmd = &cobra.Command{
+	Use:   "bounce",
+	Short: "generate and send bounce emails",
+	Long: `
+Scan all event files in the mailgun.events store.  For each 'failure' event
+that is not present in the mailgun.bounces store, generate and send a bounce
+message.  After sending the bounce, write the key into the mailgun.bounced
+store.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
-		API := mailgun.NewMailgun(viper.GetString("api_key"))
-		domains := API.ListDomains(nil)
-		var page []mtypes.Domain
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*DOMAIN_LIST_TIMEOUT)
-		defer cancel()
-		for domains.Next(ctx, &page) {
-			for _, domain := range page {
-				if domain.Type != "sandbox" && !domain.IsDisabled {
-					fmt.Printf("%s\n", domain.Name)
-				}
+		edb, err := NewDB("mailgun.events", viper.GetString("data_dir"))
+		bdb, err := NewDB("mailgun.bounced", viper.GetString("data_dir"))
+		keys, err := edb.Keys()
+		cobra.CheckErr(err)
+		for _, key := range keys {
+			data, err := edb.Get(key)
+			cobra.CheckErr(err)
+			event, err := events.ParseEvent(*data)
+			cobra.CheckErr(err)
+			if event.GetName() == "failed" && !bdb.Has(key) {
+				err := sendBounce(event.(*events.Failed))
+				cobra.CheckErr(err)
+				//flag := true
+				//err = bdb.SetObject(key, &flag)
+				//cobra.CheckErr(err)
 			}
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(domainsCmd)
+	rootCmd.AddCommand(bounceCmd)
+}
 
-	// Here you will define your flags and configuration settings.
+const BounceOpening = `Hi!
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// domainsCmd.PersistentFlags().String("foo", "", "A help for foo")
+This is the MAILER-DAEMON, please DO NOT REPLY to this email.
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// domainsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+An error has occurred while attempting to deliver a message
+for the following list of recipients:
+
+`
+
+func sendBounce(event *events.Failed) error {
+	headers := event.Message.Headers
+	fmt.Printf("---bounce---\nreason=%s\nheaders=%+v\n", event.Reason, headers)
+	fmt.Println(formatJSON(event))
+	return nil
 }

@@ -32,49 +32,54 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/mailgun/mailgun-go/v5"
-	"github.com/mailgun/mailgun-go/v5/mtypes"
+	"github.com/mailgun/mailgun-go/v5/events"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-const DOMAIN_LIST_TIMEOUT = 30
-const DOMAIN_LIMIT = 100
-
-// domainsCmd represents the domains command
-var domainsCmd = &cobra.Command{
-	Use:   "domains",
-	Short: "list mailgun domains",
-	Long:  `A list of the domain names configured in your mailgun account`,
+// eventsCmd represents the events command
+var eventsCmd = &cobra.Command{
+	Use:   "events",
+	Short: "query mailgun events",
+	Long:  `Output mailgun events for selected domain.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		API := mailgun.NewMailgun(viper.GetString("api_key"))
-		domains := API.ListDomains(nil)
-		var page []mtypes.Domain
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*DOMAIN_LIST_TIMEOUT)
+		domain := viper.GetString("domain")
+		iter := API.ListEvents(domain, nil)
+		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		for domains.Next(ctx, &page) {
-			for _, domain := range page {
-				if domain.Type != "sandbox" && !domain.IsDisabled {
-					fmt.Printf("%s\n", domain.Name)
+		db, err := NewDB("mailgun.events", viper.GetString("data_dir"))
+		cobra.CheckErr(err)
+		var allEvents []events.Event
+		var page []events.Event
+		for iter.Next(ctx, &page) {
+			for _, event := range page {
+				if viper.GetBool("json") {
+					allEvents = append(allEvents, event)
+				} else {
+					fmt.Printf("%s\t%s\t%s\n", event.GetTimestamp().Format(time.RFC3339), event.GetID(), event.GetName())
 				}
+				err := db.SetObject(event.GetID(), &event)
+				cobra.CheckErr(err)
 			}
+		}
+		if viper.GetBool("json") {
+			fmt.Println(formatJSON(&allEvents))
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(domainsCmd)
+	rootCmd.AddCommand(eventsCmd)
+}
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// domainsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// domainsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+func formatJSON(v any) string {
+	data, err := json.MarshalIndent(v, "", "  ")
+	cobra.CheckErr(err)
+	return string(data)
 }

@@ -1,2 +1,4 @@
 mailgun
 *.core
+.postactivate
+data
