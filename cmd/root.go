@@ -70,6 +70,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	OptionSwitch("verbose", "v", "enable diagnostic output")
+	OptionSwitch("foreground", "", "do not daemonize monitor")
 	OptionSwitch("quiet", "q", "suppress non-error output")
 	OptionSwitch("json", "j", "output JSON objects")
 	OptionSwitch("no-bounce", "", "disable automatic bounce generation")

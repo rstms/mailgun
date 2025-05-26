@@ -32,6 +32,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"log"
 )
 
 // monitorCmd represents the monitor command
@@ -43,9 +45,13 @@ Connect to the mailgun API and continuously poll for new events.  When new
 events arrive, store them to the cache db and send any required bounces.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		api := NewClient()
-		err := api.MonitorEvents()
-		cobra.CheckErr(err)
+		DaemonizeDisabled = viper.GetBool("foreground")
+		Daemonize(func() {
+			log.Printf("monitoring events")
+			api := NewClient()
+			err := api.MonitorEvents()
+			cobra.CheckErr(err)
+		}, "/var/log/mailgun")
 	},
 }
 
