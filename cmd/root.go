@@ -83,12 +83,8 @@ func init() {
 	OptionString("data-root", "", filepath.Join(cacheDir, "mailgun"), "database root directory")
 	OptionString("poll-interval", "", "5", "event poll interval seconds")
 	OptionString("logfile", "l", "stderr", "log file")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file")
 
-}
-
-func fileExists(filename string) bool {
-	_, err := os.Stat(filename)
-	return !os.IsNotExist(err)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -98,14 +94,18 @@ func initConfig() {
 	configDir, err := os.UserConfigDir()
 	cobra.CheckErr(err)
 
-	defaultConfigFile := filepath.Join(configDir, "mailgun", "config.yaml")
+	systemConfigFile := "/etc/mailgun/config.yaml"
+	userConfigFile := filepath.Join(configDir, "mailgun", "config.yaml")
 
 	if cfgFile != "" {
 		// config file from the command line option
 		viper.SetConfigFile(cfgFile)
-	} else if fileExists(defaultConfigFile) {
-		// default config file: ~/.config/mailgun/config.yaml
-		viper.SetConfigFile(defaultConfigFile)
+	} else if IsFile(systemConfigFile) {
+		// system config file: /etc/mailgun/config.yaml
+		viper.SetConfigFile(systemConfigFile)
+	} else if IsFile(userConfigFile) {
+		// user config file: ~/.config/mailgun/config.yaml
+		viper.SetConfigFile(userConfigFile)
 	} else {
 		// user home dir
 		homeDir, err := os.UserHomeDir()
