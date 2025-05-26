@@ -39,7 +39,7 @@ import (
 	"strings"
 )
 
-const Version = "0.0.3"
+const Version = "0.0.4"
 
 var cfgFile string
 var logFile *os.File
