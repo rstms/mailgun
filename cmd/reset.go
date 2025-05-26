@@ -31,41 +31,36 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-// domainsCmd represents the domains command
-var domainsCmd = &cobra.Command{
-	Use:   "domains",
-	Short: "list mailgun domains",
-	Long:  `A list of the domain names configured in your mailgun account`,
+var resetAll bool
+var resetEvents bool
+var resetBounced bool
+
+// resetCmd represents the reset command
+var resetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "clear state database",
+	Long: `
+Delete the filesystem directory entries recording events and bounces sent.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		api := NewClient()
-		domains, err := api.Domains()
-		cobra.CheckErr(err)
-		if viper.GetBool("json") {
-			fmt.Println(FormatJSON(&domains))
-		} else {
-			for _, domain := range domains {
-				fmt.Println(domain)
-			}
+		if resetAll || resetEvents {
+			err := api.ResetEvents()
+			cobra.CheckErr(err)
+		}
+		if resetAll || resetBounced {
+			err := api.ResetBounced()
+			cobra.CheckErr(err)
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(domainsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// domainsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// domainsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.AddCommand(resetCmd)
+	resetCmd.Flags().BoolVarP(&resetAll, "all", "a", false, "delete all cached state")
+	resetCmd.Flags().BoolVarP(&resetEvents, "events", "e", false, "delete events cache")
+	resetCmd.Flags().BoolVarP(&resetBounced, "bounced", "b", false, "delete bounces sent cache")
 }

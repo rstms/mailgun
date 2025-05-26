@@ -2,3 +2,4 @@ mailgun
 *.core
 .postactivate
 data
+cmd/testdata/db

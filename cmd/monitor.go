@@ -31,41 +31,24 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-// domainsCmd represents the domains command
-var domainsCmd = &cobra.Command{
-	Use:   "domains",
-	Short: "list mailgun domains",
-	Long:  `A list of the domain names configured in your mailgun account`,
+// monitorCmd represents the monitor command
+var monitorCmd = &cobra.Command{
+	Use:   "monitor",
+	Short: "await and process mailgun events",
+	Long: `
+Connect to the mailgun API and continuously poll for new events.  When new
+events arrive, store them to the cache db and send any required bounces.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		api := NewClient()
-		domains, err := api.Domains()
+		err := api.MonitorEvents()
 		cobra.CheckErr(err)
-		if viper.GetBool("json") {
-			fmt.Println(FormatJSON(&domains))
-		} else {
-			for _, domain := range domains {
-				fmt.Println(domain)
-			}
-		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(domainsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// domainsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// domainsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.AddCommand(monitorCmd)
 }

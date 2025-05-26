@@ -31,60 +31,24 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/mailgun/mailgun-go/v5/events"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-// bounceCmd represents the bounce command
-var bounceCmd = &cobra.Command{
-	Use:   "bounce",
-	Short: "generate and send bounce emails",
+var pruneCmd = &cobra.Command{
+	Use:   "prune",
+	Short: "prune events and bounced cache",
 	Long: `
-Scan all event files in the mailgun.events store.  For each 'failure' event
-that is not present in the mailgun.bounces store, generate and send a bounce
-message.  After sending the bounce, write the key into the mailgun.bounced
-store.
+Remove stale items from the events cache and the bounces sent cache
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		edb, err := NewDB("mailgun.events", viper.GetString("data_dir"))
-		bdb, err := NewDB("mailgun.bounced", viper.GetString("data_dir"))
-		keys, err := edb.Keys()
+		api := NewClient()
+		err := api.PruneEvents()
 		cobra.CheckErr(err)
-		for _, key := range keys {
-			data, err := edb.Get(key)
-			cobra.CheckErr(err)
-			event, err := events.ParseEvent(*data)
-			cobra.CheckErr(err)
-			if event.GetName() == "failed" && !bdb.Has(key) {
-				err := sendBounce(event.(*events.Failed))
-				cobra.CheckErr(err)
-				//flag := true
-				//err = bdb.SetObject(key, &flag)
-				//cobra.CheckErr(err)
-			}
-		}
+		err = api.PruneBounced()
+		cobra.CheckErr(err)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(bounceCmd)
-}
-
-const BounceOpening = `Hi!
-
-This is the MAILER-DAEMON, please DO NOT REPLY to this email.
-
-An error has occurred while attempting to deliver a message
-for the following list of recipients:
-
-`
-
-func sendBounce(event *events.Failed) error {
-	headers := event.Message.Headers
-	fmt.Printf("---bounce---\nreason=%s\nheaders=%+v\n", event.Reason, headers)
-	fmt.Println(formatJSON(event))
-	return nil
+	rootCmd.AddCommand(pruneCmd)
 }

@@ -10,53 +10,60 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type DB struct {
 	path    string
 	verbose bool
+	mutex   sync.Mutex
 }
 
-func isDir(path string) bool {
-	s, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return s.IsDir()
-}
+func NewDB(dir, name string) *DB {
 
-func isFile(pathname string) bool {
-	_, err := os.Stat(pathname)
-	return !os.IsNotExist(err)
-}
-
-func NewDB(name, dir string) (*DB, error) {
-	var err error
-	if dir == "" {
-		dir, err = os.UserCacheDir()
-		if err != nil {
-			return nil, err
-		}
-	} else if strings.HasPrefix(dir, "~") {
+	if strings.HasPrefix(dir, "~") {
 		_, dir, _ = strings.Cut(dir, "~")
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return nil, err
+			log.Fatalf("NewDB: %v", err)
 		}
 		dir = filepath.Join(home, dir)
 	}
+	if !IsDir(dir) {
+		err := os.Mkdir(dir, 0700)
+		if err != nil {
+			log.Fatalf("NewDB: %v", err)
+		}
+	}
 	path := filepath.Join(dir, name)
-	if !isDir(path) {
+	if !IsDir(path) {
 		err := os.Mkdir(path, 0700)
 		if err != nil {
-			return nil, err
+			log.Fatalf("NewDB: %v", err)
 		}
 	}
 	db := DB{path: path, verbose: viper.GetBool("verbose")}
 	if db.verbose {
-		log.Printf("NewDB: directory=%s\n", db.path)
+		log.Printf("DB: dir=%s\n", db.path)
 	}
-	return &db, nil
+	return &db
+}
+
+func (d *DB) Reset() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	err := os.RemoveAll(d.path)
+	if err != nil {
+		return err
+	}
+	err = os.Mkdir(d.path, 0700)
+	if err != nil {
+		return err
+	}
+	if viper.GetBool("verbose") {
+		log.Printf("DB: reset %s\n", d.path)
+	}
+	return nil
 }
 
 func (d *DB) pathname(key string) string {
@@ -74,10 +81,12 @@ func (d *DB) key(pathname string) (string, error) {
 }
 
 func (d *DB) Has(key string) bool {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	pathname := d.pathname(key)
-	ret := isFile(pathname)
+	ret := IsFile(pathname)
 	if d.verbose {
-		log.Printf("DB.Has(%s) filename=%s returning %v\n", key, pathname, ret)
+		log.Printf("DB.Has(%s) returning %v\n", key, ret)
 	}
 	return ret
 }
@@ -98,8 +107,10 @@ func (d *DB) GetObject(key string, object any) (bool, error) {
 }
 
 func (d *DB) Get(key string) (*[]byte, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	pathname := d.pathname(key)
-	if !isFile(pathname) {
+	if !IsFile(pathname) {
 		return nil, nil
 	}
 	data, err := os.ReadFile(pathname)
@@ -107,7 +118,7 @@ func (d *DB) Get(key string) (*[]byte, error) {
 		return nil, err
 	}
 	if d.verbose {
-		log.Printf("DB.Get(%s) filename=%s read %s\n", key, pathname, string(data))
+		log.Printf("DB.Get(%s) read %d bytes from %s\n", key, len(data), pathname)
 	}
 	return &data, nil
 }
@@ -121,6 +132,8 @@ func (d *DB) SetObject(key string, object interface{}) error {
 }
 
 func (d *DB) Set(key string, data *[]byte) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	pathname := d.pathname(key)
 	err := os.WriteFile(pathname, *data, 0600)
@@ -128,12 +141,28 @@ func (d *DB) Set(key string, data *[]byte) error {
 		return err
 	}
 	if d.verbose {
-		log.Printf("DB.Set(%s) filename=%s wrote %s\n", key, pathname, string(*data))
+		log.Printf("DB.Set(%s) wrote %d bytes to %s\n", key, len(*data), pathname)
+	}
+	return nil
+}
+
+func (d *DB) Clear(key string) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	pathname := d.pathname(key)
+	err := os.Remove(pathname)
+	if err != nil {
+		return err
+	}
+	if d.verbose {
+		log.Printf("DB.Clear(%s) deleted %s\n", key, pathname)
 	}
 	return nil
 }
 
 func (d *DB) Keys() ([]string, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	keys := []string{}
 	err := filepath.WalkDir(d.path, func(path string, entry fs.DirEntry, err error) error {
@@ -157,7 +186,7 @@ func (d *DB) Keys() ([]string, error) {
 		return []string{}, err
 	}
 	if d.verbose {
-		log.Printf("DB.Keys() returning %v\n", keys)
+		log.Printf("DB.Keys() returning %d keys\n", len(keys))
 	}
 	return keys, nil
 }

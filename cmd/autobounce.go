@@ -31,41 +31,25 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-// domainsCmd represents the domains command
-var domainsCmd = &cobra.Command{
-	Use:   "domains",
-	Short: "list mailgun domains",
-	Long:  `A list of the domain names configured in your mailgun account`,
+var autoBounceCmd = &cobra.Command{
+	Use:   "autobounce",
+	Short: "generate and send bounce emails",
+	Long: `
+Scan all event files in the mailgun.events store.  For each 'failure' event
+that is not present in the mailgun.bounces store, generate and send a bounce
+message.  After sending the bounce, write the key into the mailgun.bounced
+store.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		api := NewClient()
-		domains, err := api.Domains()
+		err := api.SendBounces()
 		cobra.CheckErr(err)
-		if viper.GetBool("json") {
-			fmt.Println(FormatJSON(&domains))
-		} else {
-			for _, domain := range domains {
-				fmt.Println(domain)
-			}
-		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(domainsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// domainsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// domainsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.AddCommand(autoBounceCmd)
 }

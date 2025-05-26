@@ -31,13 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"time"
-
-	"github.com/mailgun/mailgun-go/v5"
-	"github.com/mailgun/mailgun-go/v5/events"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -48,38 +42,15 @@ var eventsCmd = &cobra.Command{
 	Short: "query mailgun events",
 	Long:  `Output mailgun events for selected domain.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		API := mailgun.NewMailgun(viper.GetString("api_key"))
-		domain := viper.GetString("domain")
-		iter := API.ListEvents(domain, nil)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		db, err := NewDB("mailgun.events", viper.GetString("data_dir"))
+		api := NewClient()
+		events, err := api.QueryEvents()
 		cobra.CheckErr(err)
-		var allEvents []events.Event
-		var page []events.Event
-		for iter.Next(ctx, &page) {
-			for _, event := range page {
-				if viper.GetBool("json") {
-					allEvents = append(allEvents, event)
-				} else {
-					fmt.Printf("%s\t%s\t%s\n", event.GetTimestamp().Format(time.RFC3339), event.GetID(), event.GetName())
-				}
-				err := db.SetObject(event.GetID(), &event)
-				cobra.CheckErr(err)
-			}
-		}
 		if viper.GetBool("json") {
-			fmt.Println(formatJSON(&allEvents))
+			fmt.Println(FormatJSON(&events))
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(eventsCmd)
-}
-
-func formatJSON(v any) string {
-	data, err := json.MarshalIndent(v, "", "  ")
-	cobra.CheckErr(err)
-	return string(data)
 }

@@ -42,12 +42,20 @@ import (
 const Version = "0.0.2"
 
 var cfgFile string
+var logFile *os.File
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "mailgun",
 	Short: "mailgun toolkit",
 	Long:  `Functions making use of the mailgun API`,
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		if logFile != nil {
+			err := logFile.Close()
+			cobra.CheckErr(err)
+			logFile = nil
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -61,13 +69,21 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	OptionSwitch("verbose", "v", "verbose output")
-	OptionSwitch("json", "j", "select JSON output")
+	OptionSwitch("verbose", "v", "enable diagnostic output")
+	OptionSwitch("quiet", "q", "suppress non-error output")
+	OptionSwitch("json", "j", "output JSON objects")
+	OptionSwitch("no-bounce", "", "disable automatic bounce generation")
+	OptionSwitch("no-delete", "", "disable deletion of bounced addresses")
 	hostname, err := os.Hostname()
 	cobra.CheckErr(err)
 	_, domain, _ := strings.Cut(hostname, ".")
 	OptionString("domain", "d", domain, "mailgun domain")
-	OptionString("data_dir", "", "", "database root directory")
+	cacheDir, err := os.UserCacheDir()
+	cobra.CheckErr(err)
+	OptionString("data-root", "", filepath.Join(cacheDir, "mailgun"), "database root directory")
+	OptionString("poll-interval", "", "5", "event poll interval seconds")
+	OptionString("logfile", "l", "stderr", "log file")
+
 }
 
 func fileExists(filename string) bool {
@@ -85,7 +101,7 @@ func initConfig() {
 	defaultConfigFile := filepath.Join(configDir, "mailgun", "config.yaml")
 
 	if cfgFile != "" {
-		// config file from the command line option 
+		// config file from the command line option
 		viper.SetConfigFile(cfgFile)
 	} else if fileExists(defaultConfigFile) {
 		// default config file: ~/.config/mailgun/config.yaml
@@ -110,5 +126,7 @@ func initConfig() {
 			fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 		}
 	}
+
+	InitLog()
 
 }
