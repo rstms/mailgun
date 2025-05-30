@@ -36,7 +36,6 @@ import (
 	"log"
 )
 
-// monitorCmd represents the monitor command
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
 	Short: "await and process mailgun events",

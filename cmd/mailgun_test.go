@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -12,13 +13,8 @@ func initTestConfig() {
 
 func TestEvents(t *testing.T) {
 	initTestConfig()
-	api := InitAPI()
-	err := QueryEvents(api)
+	api := NewClient()
+	events, err := api.QueryEvents()
 	require.Nil(t, err)
-}
-
-func TestBounces(t *testing.T) {
-	initTestConfig()
-	err := GenerateBounces()
-	require.Nil(t, err)
+	fmt.Printf("%v\n", events)
 }

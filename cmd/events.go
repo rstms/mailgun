@@ -36,11 +36,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-// eventsCmd represents the events command
 var eventsCmd = &cobra.Command{
 	Use:   "events",
 	Short: "query mailgun events",
-	Long:  `Output mailgun events for selected domain.`,
+	Long: `
+Output mailgun events for selected domain.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		api := NewClient()
 		events, err := api.QueryEvents()

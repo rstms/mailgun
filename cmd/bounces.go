@@ -40,7 +40,7 @@ var bouncesCmd = &cobra.Command{
 	Use:   "bounces",
 	Short: "query bounce addresses",
 	Long: `
-List the mailgun account persistent list of bounced addresses."
+List the mailgun account persistent list of bounced addresses.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		api := NewClient()

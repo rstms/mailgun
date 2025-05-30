@@ -37,11 +37,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-// domainsCmd represents the domains command
 var domainsCmd = &cobra.Command{
 	Use:   "domains",
 	Short: "list mailgun domains",
-	Long:  `A list of the domain names configured in your mailgun account`,
+	Long: `
+Output a list of all domains found in the config file.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		api := NewClient()
 		domains, err := api.Domains()
@@ -58,14 +59,4 @@ var domainsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(domainsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// domainsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// domainsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

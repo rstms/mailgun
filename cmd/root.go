@@ -44,11 +44,12 @@ const Version = "0.1.0"
 var cfgFile string
 var logFile *os.File
 
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "mailgun",
 	Short: "mailgun toolkit",
-	Long:  `Functions making use of the mailgun API`,
+	Long: `
+Functions making use of the mailgun API
+`,
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
 		if logFile != nil {
 			err := logFile.Close()
@@ -58,15 +59,12 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
-
 func init() {
 	cobra.OnInitialize(initConfig)
 	OptionSwitch("verbose", "v", "enable diagnostic output")
@@ -85,49 +83,30 @@ func init() {
 	OptionString("poll-interval", "", "5", "event poll interval seconds")
 	OptionString("logfile", "l", "stderr", "log file")
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file")
-
 }
-
-// initConfig reads in config file and ENV variables if set.
 func initConfig() {
-
-	// user config dir
 	configDir, err := os.UserConfigDir()
 	cobra.CheckErr(err)
-
 	systemConfigFile := "/etc/mailgun/config.yaml"
 	userConfigFile := filepath.Join(configDir, "mailgun", "config.yaml")
-
 	if cfgFile != "" {
-		// config file from the command line option
 		viper.SetConfigFile(cfgFile)
 	} else if IsFile(systemConfigFile) {
-		// system config file: /etc/mailgun/config.yaml
 		viper.SetConfigFile(systemConfigFile)
 	} else if IsFile(userConfigFile) {
-		// user config file: ~/.config/mailgun/config.yaml
 		viper.SetConfigFile(userConfigFile)
 	} else {
-		// user home dir
 		homeDir, err := os.UserHomeDir()
 		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".mailgun" (without extension).
 		viper.AddConfigPath(homeDir)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".mailgun")
 	}
-
 	viper.SetEnvPrefix("mailgun")
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		if viper.GetBool("verbose") {
 			fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 		}
 	}
-
 	InitLog()
-
 }

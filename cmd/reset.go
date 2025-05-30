@@ -38,7 +38,6 @@ var resetAll bool
 var resetEvents bool
 var resetBounced bool
 
-// resetCmd represents the reset command
 var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "clear state database",
